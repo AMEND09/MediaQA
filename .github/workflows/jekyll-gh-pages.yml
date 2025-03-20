@@ -27,11 +27,13 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: '18'
-          cache: 'npm'
-          cache-dependency-path: 'react-app/package-lock.json'
-      
+          # Remove the cache configuration that's causing issues
+          
       - name: Install dependencies
-        run: cd react-app && npm ci
+        run: |
+          cd react-app
+          # Use npm ci for clean installs in CI environment
+          npm ci || npm install
         
       - name: Build React app
         run: |
