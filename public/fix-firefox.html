@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Firefox Media Permissions Test</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+      line-height: 1.6;
+      color: #333;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    h1 {
+      color: #2c3e50;
+      border-bottom: 1px solid #eee;
+      padding-bottom: 10px;
+    }
+    .card {
+      margin: 20px 0;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      background-color: #fff;
+    }
+    .button {
+      background-color: #3498db;
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+      margin-right: 10px;
+      margin-bottom: 10px;
+    }
+    .button:hover {
+      background-color: #2980b9;
+    }
+    .status {
+      margin-top: 20px;
+      padding: 15px;
+      border-radius: 4px;
+    }
+    .success {
+      background-color: #d4edda;
+      border-left: 4px solid #28a745;
+    }
+    .error {
+      background-color: #f8d7da;
+      border-left: 4px solid #dc3545;
+    }
+    .info {
+      background-color: #e2f3f5;
+      border-left: 4px solid #17a2b8;
+    }
+    img, video {
+      max-width: 100%;
+      border-radius: 4px;
+    }
+    .steps {
+      padding-left: 20px;
+    }
+    .steps li {
+      margin-bottom: 10px;
+    }
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <h1>Firefox Media Permissions Test</h1>
+  <p>This page helps test and troubleshoot camera and microphone access in Firefox.</p>
+  
+  <div class="card">
+    <h2>Permission Status</h2>
+    <div id="permissionStatus" class="info">
+      Checking permissions...
+    </div>
+    
+    <h3>Test Your Camera & Microphone</h3>
+    <div>
+      <button id="testCamera" class="button">Test Camera</button>
+      <button id="testMicrophone" class="button">Test Microphone</button>
+      <button id="testBoth" class="button">Test Both</button>
+    </div>
+    
+    <div id="mediaPreview" class="hidden">
+      <h3>Media Preview</h3>
+      <video id="videoPreview" autoplay muted style="width: 100%; max-height: 300px;"></video>
+    </div>
+  </div>
+  
+  <div class="card">
+    <h2>Troubleshooting Firefox Permissions</h2>
+    <p>If you're experiencing issues with camera or microphone access in Firefox, follow these steps:</p>
+    
+    <ol class="steps">
+      <li>
+        <strong>Check the address bar for permission icons</strong>
+        <p>Look for camera or microphone icons in the address bar. Click them to manage permissions.</p>
+        <img src="https://support.cdn.mozilla.net/media/uploads/gallery/images/2020-07-23-13-13-48-c63f4e.png" alt="Firefox permission icons" style="max-width: 300px;">
+      </li>
+      <li>
+        <strong>Verify your Firefox privacy settings</strong>
+        <p>Open Firefox Preferences → Privacy & Security → Permissions</p>
+        <p>Check that Camera and Microphone permissions are not blocked for this site.</p>
+      </li>
+      <li>
+        <strong>Reset permissions if needed</strong>
+        <p>In Firefox Preferences → Privacy & Security → Permissions, click "Settings..." next to Camera or Microphone and remove any blocked entries for this site.</p>
+      </li>
+      <li>
+        <strong>Restart Firefox</strong>
+        <p>Sometimes a simple browser restart can resolve permission issues.</p>
+      </li>
+    </ol>
+  </div>
+  
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const permissionStatus = document.getElementById('permissionStatus');
+      const testCamera = document.getElementById('testCamera');
+      const testMicrophone = document.getElementById('testMicrophone');
+      const testBoth = document.getElementById('testBoth');
+      const mediaPreview = document.getElementById('mediaPreview');
+      const videoPreview = document.getElementById('videoPreview');
+      
+      let currentStream = null;
+      
+      // Check if Firefox
+      const isFirefox = navigator.userAgent.indexOf("Firefox") > -1;
+      
+      // Initialize media devices for Firefox if needed
+      if (isFirefox && typeof navigator !== 'undefined' && !navigator.mediaDevices) {
+        navigator.mediaDevices = {};
+        navigator.mediaDevices.getUserMedia = function(constraints) {
+          const getUserMedia = navigator.mozGetUserMedia || navigator.webkitGetUserMedia;
+          if (!getUserMedia) {
+            return Promise.reject(new Error("getUserMedia is not implemented in this browser"));
+          }
+          return new Promise((resolve, reject) => {
+            getUserMedia.call(navigator, constraints, resolve, reject);
+          });
+        };
+      }
+      
+      // Check permissions if available
+      if (navigator.permissions && typeof navigator.permissions.query === 'function') {
+        // Check camera permission
+        const checkPermissions = async () => {
+          try {
+            const cameraStatus = await navigator.permissions.query({ name: 'camera' });
+            const microphoneStatus = await navigator.permissions.query({ name: 'microphone' });
+            
+            permissionStatus.className = 'status info';
+            permissionStatus.innerHTML = `
+              <p><strong>Camera permission:</strong> ${cameraStatus.state}</p>
+              <p><strong>Microphone permission:</strong> ${microphoneStatus.state}</p>
+              <p>If any permission is "denied", click the blocked permission icon in the address bar and change to "Allow".</p>
+            `;
+            
+            if (cameraStatus.state === 'denied' || microphoneStatus.state === 'denied') {
+              permissionStatus.className = 'status error';
+            } else if (cameraStatus.state === 'granted' && microphoneStatus.state === 'granted') {
+              permissionStatus.className = 'status success';
+            }
+            
+            // Listen for changes
+            cameraStatus.onchange = microphoneStatus.onchange = checkPermissions;
+          } catch (error) {
+            console.error("Error checking permissions:", error);
+            permissionStatus.className = 'status error';
+            permissionStatus.textContent = `Error checking permissions: ${error.message}`;
+          }
+        };
+        
+        checkPermissions();
+      } else {
+        permissionStatus.textContent = "Permission API not available in this browser";
+      }
+      
+      // Stop any active stream
+      function stopCurrentStream() {
+        if (currentStream) {
+          currentStream.getTracks().forEach(track => track.stop());
+          currentStream = null;
+          videoPreview.srcObject = null;
+          mediaPreview.classList.add('hidden');
+        }
+      }
+      
+      // Test camera access
+      testCamera.addEventListener('click', async () => {
+        try {
+          stopCurrentStream();
+          
+          testCamera.textContent = "Requesting...";
+          
+          currentStream = await navigator.mediaDevices.getUserMedia({ 
+            video: true 
+          });
+          
+          videoPreview.srcObject = currentStream;
+          mediaPreview.classList.remove('hidden');
+          
+          testCamera.textContent = "Camera Working!";
+          setTimeout(() => {
+            testCamera.textContent = "Test Camera";
+          }, 3000);
+          
+          // Update permissions display
+          if (navigator.permissions && typeof navigator.permissions.query === 'function') {
+            navigator.permissions.query({ name: 'camera' }).then(checkPermissions);
+          }
+        } catch (error) {
+          console.error("Error accessing camera:", error);
+          testCamera.textContent = "Test Camera";
+          
+          permissionStatus.className = 'status error';
+          permissionStatus.innerHTML = `
+            <p><strong>Camera Error:</strong> ${error.name} - ${error.message}</p>
+            <p>Check the address bar for blocked permission icons.</p>
+          `;
+        }
+      });
+      
+      // Test microphone access
+      testMicrophone.addEventListener('click', async () => {
+        try {
+          stopCurrentStream();
+          
+          testMicrophone.textContent = "Requesting...";
+          
+          currentStream = await navigator.mediaDevices.getUserMedia({ 
+            audio: true 
+          });
+          
+          testMicrophone.textContent = "Microphone Working!";
+          setTimeout(() => {
+            testMicrophone.textContent = "Test Microphone";
+          }, 3000);
+          
+          // Update permissions display
+          if (navigator.permissions && typeof navigator.permissions.query === 'function') {
+            navigator.permissions.query({ name: 'microphone' }).then(checkPermissions);
+          }
+        } catch (error) {
+          console.error("Error accessing microphone:", error);
+          testMicrophone.textContent = "Test Microphone";
+          
+          permissionStatus.className = 'status error';
+          permissionStatus.innerHTML = `
+            <p><strong>Microphone Error:</strong> ${error.name} - ${error.message}</p>
+            <p>Check the address bar for blocked permission icons.</p>
+          `;
+        }
+      });
+      
+      // Test both camera and microphone
+      testBoth.addEventListener('click', async () => {
+        try {
+          stopCurrentStream();
+          
+          testBoth.textContent = "Requesting...";
+          
+          currentStream = await navigator.mediaDevices.getUserMedia({ 
+            video: true,
+            audio: true
+          });
+          
+          videoPreview.srcObject = currentStream;
+          mediaPreview.classList.remove('hidden');
+          
+          testBoth.textContent = "Both Working!";
+          setTimeout(() => {
+            testBoth.textContent = "Test Both";
+          }, 3000);
+          
+          // Update permissions display
+          if (navigator.permissions && typeof navigator.permissions.query === 'function') {
+            navigator.permissions.query({ name: 'camera' }).then(checkPermissions);
+            navigator.permissions.query({ name: 'microphone' }).then(checkPermissions);
+          }
+        } catch (error) {
+          console.error("Error accessing camera and microphone:", error);
+          testBoth.textContent = "Test Both";
+          
+          permissionStatus.className = 'status error';
+          permissionStatus.innerHTML = `
+            <p><strong>Camera/Mic Error:</strong> ${error.name} - ${error.message}</p>
+            <p>Check the address bar for blocked permission icons.</p>
+          `;
+        }
+      });
+    });
+  </script>
+</body>
+</html>
