@@ -31,13 +31,11 @@ jobs:
           
       - name: Install dependencies
         run: |
-          cd react-app
           # Use npm ci for clean installs in CI environment
           npm ci || npm install
         
       - name: Build React app
         run: |
-          cd react-app
           # Use environment variables from repository secrets
           echo "REACT_APP_GEMINI_API_KEY=${{ secrets.REACT_APP_GEMINI_API_KEY || 'YOUR_API_KEY_HERE' }}" > .env
           npm run build
@@ -47,13 +45,13 @@ jobs:
         
       - name: Add .nojekyll file
         run: |
-          cd react-app/build
+          cd /build
           touch .nojekyll
       
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: 'react-app/build'
+          path: '/build'
 
   deploy:
     environment:
